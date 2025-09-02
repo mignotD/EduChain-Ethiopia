@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Environment & secrets — never commit credentials
+.env
+.env.*
+!.env.example
+*.pem
+*-service-role*
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
