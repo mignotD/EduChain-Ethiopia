@@ -14,10 +14,10 @@ npm (comes with Node.js)
 
 Installation & Setup
 # Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
+git clone https://github.com/mignotD/EduChain-Ethiopia.git)
 
 # Step 2: Navigate into the project
-cd <YOUR_PROJECT_NAME>
+cd EduChain-Ethiopia
 
 # Step 3: Install dependencies
 npm install
@@ -26,7 +26,7 @@ npm install
 npm run dev
 
 
-The app will be available at http://localhost:5173
+The app will be available at http://localhost:8080
  (default Vite port).
 
 🛠️ Tech Stack
