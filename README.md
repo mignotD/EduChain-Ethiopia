@@ -14,7 +14,7 @@ npm (comes with Node.js)
 
 Installation & Setup
 # Step 1: Clone the repository
-git clone https://github.com/mignotD/EduChain-Ethiopia.git)
+git clone https://github.com/mignotD/EduChain-Ethiopia.git
 
 # Step 2: Navigate into the project
 cd EduChain-Ethiopia
