@@ -14,11 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          certificate_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          university_code: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          certificate_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          university_code?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          certificate_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          university_code?: string | null
+        }
+        Relationships: []
+      }
       certificates: {
         Row: {
           certificate_id: string
           created_at: string
           degree: string
+          expiry_date: string | null
           field_of_study: string
           gpa: number | null
           graduation_date: string
@@ -27,6 +58,9 @@ export type Database = {
           issued_at: string
           issued_by: string
           qr_code: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           status: string
           student_id: string
           student_name: string
@@ -38,6 +72,7 @@ export type Database = {
           certificate_id?: string
           created_at?: string
           degree: string
+          expiry_date?: string | null
           field_of_study: string
           gpa?: number | null
           graduation_date: string
@@ -46,6 +81,9 @@ export type Database = {
           issued_at?: string
           issued_by: string
           qr_code?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           status?: string
           student_id: string
           student_name: string
@@ -57,6 +95,7 @@ export type Database = {
           certificate_id?: string
           created_at?: string
           degree?: string
+          expiry_date?: string | null
           field_of_study?: string
           gpa?: number | null
           graduation_date?: string
@@ -65,6 +104,9 @@ export type Database = {
           issued_at?: string
           issued_by?: string
           qr_code?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           status?: string
           student_id?: string
           student_name?: string
@@ -110,6 +152,39 @@ export type Database = {
         }
         Relationships: []
       }
+      university_settings: {
+        Row: {
+          id: string
+          university_code: string
+          logo_url: string | null
+          primary_color: string
+          accent_color: string
+          certificate_theme: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          university_code: string
+          logo_url?: string | null
+          primary_color?: string
+          accent_color?: string
+          certificate_theme?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          university_code?: string
+          logo_url?: string | null
+          primary_color?: string
+          accent_color?: string
+          certificate_theme?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -123,6 +198,23 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_student_certificates: {
+        Args: { student_id_param: string }
+        Returns: {
+          certificate_id: string
+          degree: string
+          expiry_date: string | null
+          field_of_study: string
+          gpa: number
+          graduation_date: string
+          honors: string
+          is_expired: boolean
+          issued_at: string
+          status: string
+          student_name: string
+          university_name: string
+        }[]
+      }
       is_super_admin: {
         Args: { user_id: string }
         Returns: boolean
@@ -132,12 +224,17 @@ export type Database = {
         Returns: {
           certificate_id: string
           degree: string
+          expiry_date: string | null
           field_of_study: string
           gpa: number
           graduation_date: string
           honors: string
+          is_expired: boolean
           is_valid: boolean
           issued_at: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          status: string
           student_name: string
           university_name: string
         }[]
