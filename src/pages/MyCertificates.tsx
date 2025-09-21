@@ -6,7 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   GraduationCap, 
   FileText, 
@@ -20,26 +31,38 @@ import {
   ArrowLeft,
   Filter,
   Eye,
-  LogOut
+  LogOut,
+  Ban,
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { PageTransition } from '@/components/PageTransition';
 import { Database } from '@/integrations/supabase/types';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { generateCertificatePDF } from '@/utils/pdfGenerator';
 import { CertificateTemplate } from '@/components/CertificateTemplate';
+import { useUniversitySettings } from '@/hooks/useUniversitySettings';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 type Certificate = Database['public']['Tables']['certificates']['Row'];
 
 const MyCertificates = () => {
   const { user, profile, signOut, loading: authLoading } = useAuth();
-  const { certificates, loading: certsLoading, fetchCertificates } = useCertificates();
+  const { certificates, loading: certsLoading, fetchCertificates, revokeCertificate, getEffectiveStatus, isCertificateExpired } = useCertificates();
+  const { settings } = useUniversitySettings();
   const navigate = useNavigate();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'revoked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'revoked' | 'expired'>('all');
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [certificateToRevoke, setCertificateToRevoke] = useState<Certificate | null>(null);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [isRevoking, setIsRevoking] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -74,7 +97,8 @@ const MyCertificates = () => {
       cert.certificate_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cert.student_id.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || cert.status === statusFilter;
+    const effectiveStatus = getEffectiveStatus(cert);
+    const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -131,6 +155,7 @@ const MyCertificates = () => {
           </div>
           
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <div className="text-right">
               <p className="text-sm font-medium">{profile.full_name}</p>
               <Badge variant={profile.role === 'super_admin' ? 'default' : 'secondary'}>
@@ -146,6 +171,7 @@ const MyCertificates = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        <PageTransition>
         {/* Search and Filter Section */}
         <Card className="mb-6">
           <CardHeader>
@@ -173,6 +199,7 @@ const MyCertificates = () => {
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
+                  <option value="expired">Expired</option>
                   <option value="revoked">Revoked</option>
                 </select>
               </div>
@@ -181,7 +208,7 @@ const MyCertificates = () => {
         </Card>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Certificates</CardTitle>
