@@ -224,14 +224,27 @@ const MyCertificates = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Certificates</CardTitle>
+              <CardTitle className="text-sm font-medium">Active</CardTitle>
               <Shield className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                {certificates.filter(c => c.status === 'active').length}
+                {certificates.filter(c => c.status === 'active' && !isCertificateExpired(c)).length}
               </div>
               <p className="text-xs text-muted-foreground">Valid credentials</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Expired</CardTitle>
+              <Clock className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">
+                {certificates.filter(c => c.status === 'active' && isCertificateExpired(c)).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Past expiry date</p>
             </CardContent>
           </Card>
 
@@ -281,7 +294,7 @@ const MyCertificates = () => {
             ) : (
               <div className="space-y-4">
                 {filteredCertificates.map((certificate) => (
-                  <Card key={certificate.id} className="border-l-4 border-l-primary">
+                  <Card key={certificate.id} className={`border-l-4 ${getEffectiveStatus(certificate) === 'active' ? 'border-l-primary' : getEffectiveStatus(certificate) === 'expired' ? 'border-l-amber-500' : 'border-l-destructive'}`}>
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                         {/* Student Info */}
@@ -293,9 +306,16 @@ const MyCertificates = () => {
                           <p className="text-sm text-muted-foreground">
                             ID: {certificate.student_id}
                           </p>
-                          <Badge variant={certificate.status === 'active' ? 'default' : 'destructive'}>
-                            {certificate.status === 'active' ? 'Active' : 'Revoked'}
-                          </Badge>
+                          {getEffectiveStatus(certificate) === 'expired' ? (
+                            <Badge variant="outline" className="text-amber-600 border-amber-600">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Expired
+                            </Badge>
+                          ) : (
+                            <Badge variant={certificate.status === 'active' ? 'default' : 'destructive'}>
+                              {certificate.status === 'active' ? 'Active' : 'Revoked'}
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Academic Info */}
@@ -310,6 +330,18 @@ const MyCertificates = () => {
                           {certificate.gpa && (
                             <p className="text-sm text-muted-foreground">
                               GPA: {certificate.gpa}
+                            </p>
+                          )}
+                          {certificate.expiry_date && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Expires: {format(new Date(certificate.expiry_date), 'PP')}
+                            </p>
+                          )}
+                          {certificate.status === 'revoked' && certificate.revocation_reason && (
+                            <p className="text-sm text-destructive flex items-center gap-1">
+                              <Ban className="h-3 w-3" />
+                              {certificate.revocation_reason}
                             </p>
                           )}
                         </div>
@@ -358,6 +390,21 @@ const MyCertificates = () => {
                             <Download className="h-4 w-4 mr-2" />
                             {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
                           </Button>
+                          {certificate.status === 'active' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setCertificateToRevoke(certificate);
+                                setRevokeReason('');
+                                setShowRevokeDialog(true);
+                              }}
+                              className="w-full text-destructive border-destructive hover:bg-destructive/10"
+                            >
+                              <Ban className="h-4 w-4 mr-2" />
+                              Revoke
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -368,10 +415,60 @@ const MyCertificates = () => {
           </CardContent>
         </Card>
 
+        {/* Revoke Confirmation Dialog */}
+        <AlertDialog open={showRevokeDialog} onOpenChange={setShowRevokeDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <Ban className="h-5 w-5" />
+                Revoke Certificate
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will invalidate the certificate for <strong>{certificateToRevoke?.student_name}</strong> 
+                ({certificateToRevoke?.certificate_id}). This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Reason for Revocation *</label>
+                <Textarea
+                  placeholder="e.g., Academic misconduct, administrative error, degree rescinded..."
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isRevoking}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!revokeReason.trim() || isRevoking}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  if (!certificateToRevoke || !revokeReason.trim()) return;
+                  setIsRevoking(true);
+                  try {
+                    await revokeCertificate(certificateToRevoke.certificate_id, revokeReason.trim());
+                    toast.success('Certificate revoked successfully');
+                    setShowRevokeDialog(false);
+                    setCertificateToRevoke(null);
+                  } catch (err) {
+                    toast.error('Failed to revoke certificate');
+                  } finally {
+                    setIsRevoking(false);
+                  }
+                }}
+              >
+                {isRevoking ? 'Revoking...' : 'Confirm Revocation'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Hidden Certificate Template for PDF Generation */}
         {selectedCertificate && (
           <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-            <CertificateTemplate certificate={selectedCertificate} />
+            <CertificateTemplate certificate={selectedCertificate} settings={settings || undefined} />
           </div>
         )}
 
@@ -387,6 +484,7 @@ const MyCertificates = () => {
             studentName={selectedCertificate.student_name}
           />
         )}
+      </PageTransition>
       </div>
     </div>
   );
