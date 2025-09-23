@@ -18,15 +18,19 @@ import {
   User,
   FileText,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  Clock,
+  Ban
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCertificates } from '@/hooks/useCertificates';
 import { Database } from '@/integrations/supabase/types';
 import QRScannerComponent from '@/components/QRScanner';
 import { CertificateTemplate } from '@/components/CertificateTemplate';
+import { fetchSettingsByUniversityCode } from '@/hooks/useUniversitySettings';
 import { generateCertificatePDF } from '@/utils/pdfGenerator';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { PageTransition } from '@/components/PageTransition';
 import { toast } from 'sonner';
 
 type Certificate = Database['public']['Tables']['certificates']['Row'];
@@ -42,9 +46,20 @@ const Verify = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [certSettings, setCertSettings] = useState<any>(null);
+
+  // Fetch university settings when certificate is loaded
+  useEffect(() => {
+    if (certificate?.university_code) {
+      fetchSettingsByUniversityCode(certificate.university_code).then(setCertSettings);
+    } else {
+      setCertSettings(null);
+    }
+  }, [certificate?.university_code]);
 
   // Auto-verify if certificateId is in URL
   useEffect(() => {
@@ -71,6 +86,10 @@ const Verify = () => {
       
       if (!result) {
         setError('Certificate not found or invalid');
+      } else {
+        // Check if certificate is expired
+        const expired = result.expiry_date ? new Date(result.expiry_date) < new Date() : false;
+        setIsExpired(expired);
       }
     } catch (err) {
       setError('An error occurred while verifying the certificate');
@@ -137,12 +156,19 @@ const Verify = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="relative">
+        {/* Background decoration (matches landing page) */}
+        <div className="absolute inset-0 bg-grid-pattern pointer-events-none" />
+        <div className="absolute top-10 -right-20 w-80 h-80 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-accent/5 blur-3xl pointer-events-none" />
+
+        <div className="container mx-auto px-4 py-8 max-w-4xl relative">
+        <PageTransition>
         {/* Verification Form */}
-        <Card className="mb-8">
+        <Card className="mb-8 gradient-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <Shield className="h-5 w-5 text-primary" />
               Verify Academic Certificate
             </CardTitle>
             <CardDescription>
@@ -154,20 +180,26 @@ const Verify = () => {
               <div className="space-y-2">
                 <Label htmlFor="certificateId">Certificate ID</Label>
                 <div className="flex gap-2">
-                  <Input
-                    id="certificateId"
-                    placeholder="e.g., EC-2024-ABC123"
-                    value={certificateId}
-                    onChange={(e) => setCertificateId(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button 
-                    type="submit" 
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="certificateId"
+                      placeholder="e.g., EC-2024-ABC123"
+                      value={certificateId}
+                      onChange={(e) => setCertificateId(e.target.value)}
+                      className="pl-9 h-11"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
                     disabled={isVerifying}
-                    className="px-6"
+                    className="px-6 h-11"
                   >
                     {isVerifying ? (
-                      <>Verifying...</>
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                        Verifying
+                      </>
                     ) : (
                       <>
                         <Search className="h-4 w-4 mr-2" />
@@ -177,12 +209,12 @@ const Verify = () => {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-2">Or</p>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowScanner(true)}
                 >
