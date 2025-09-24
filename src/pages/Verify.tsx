@@ -228,7 +228,7 @@ const Verify = () => {
 
         {/* Error Message */}
         {error && (
-          <Alert className="mb-8 border-destructive">
+          <Alert className="mb-8 border-destructive animate-slide-up">
             <XCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -236,34 +236,66 @@ const Verify = () => {
 
         {/* Verification Result */}
         {hasSearched && !isVerifying && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {certificate ? (
-                  <>
-                    <CheckCircle className="h-5 w-5 text-success" />
-                    Certificate Verified
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-5 w-5 text-destructive" />
-                    Certificate Not Found
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-            
-            {certificate && (
-              <CardContent className="space-y-6">
-                {/* Status Badge */}
-                <div>
-                  <Badge 
-                    variant={certificate.status === 'active' ? 'default' : 'secondary'}
-                    className="text-sm"
-                  >
-                    {certificate.status === 'active' ? 'Valid Certificate' : 'Invalid Certificate'}
-                  </Badge>
-                </div>
+          <Card className="animate-scale-in overflow-hidden">
+            {certificate ? (
+              <>
+                {/* Integrity Seal Banner */}
+                {(() => {
+                  const seal = certificate.status === 'revoked'
+                    ? {
+                        ring: 'bg-destructive/10 text-destructive ring-destructive/30',
+                        band: 'from-destructive/10 to-destructive/5',
+                        Icon: Ban,
+                        title: 'Certificate Revoked',
+                        subtitle: 'This credential has been revoked and is no longer valid.',
+                      }
+                    : isExpired
+                    ? {
+                        ring: 'bg-amber-500/10 text-amber-600 ring-amber-500/30',
+                        band: 'from-amber-500/10 to-amber-500/5',
+                        Icon: Clock,
+                        title: 'Certificate Expired',
+                        subtitle: 'This credential was genuine but has passed its expiry date.',
+                      }
+                    : {
+                        ring: 'bg-success/10 text-success ring-success/30',
+                        band: 'from-success/10 to-success/5',
+                        Icon: CheckCircle,
+                        title: 'Certificate Verified',
+                        subtitle: 'This credential is authentic and matches the EduChain Ethiopia record.',
+                      };
+                  return (
+                    <div className={`flex items-center gap-4 p-6 bg-gradient-to-r ${seal.band} border-b`}>
+                      <div className={`p-3 rounded-full ring-4 ${seal.ring}`}>
+                        <seal.Icon className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-heading font-bold leading-tight">{seal.title}</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">{seal.subtitle}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <CardContent className="space-y-6 pt-6">
+                  {/* Status Badge */}
+                  <div className="flex flex-wrap gap-2">
+                    {certificate.status === 'revoked' ? (
+                      <Badge variant="destructive" className="text-sm">
+                        <Ban className="h-3 w-3 mr-1" />
+                        Revoked Certificate
+                      </Badge>
+                    ) : isExpired ? (
+                      <Badge variant="outline" className="text-amber-600 border-amber-600 text-sm">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Expired Certificate
+                      </Badge>
+                    ) : (
+                      <Badge variant="default" className="text-sm">
+                        Valid Certificate
+                      </Badge>
+                    )}
+                  </div>
 
                 {/* Certificate Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -336,6 +368,23 @@ const Verify = () => {
                         <div className="text-sm text-muted-foreground">
                           Issued: {new Date(certificate.issued_at).toLocaleDateString()}
                         </div>
+                        {certificate.expiry_date && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            Expires: {new Date(certificate.expiry_date).toLocaleDateString()}
+                          </div>
+                        )}
+                        {certificate.status === 'revoked' && certificate.revocation_reason && (
+                          <div className="flex items-center gap-2 text-sm text-destructive">
+                            <Ban className="h-4 w-4" />
+                            Revoked: {certificate.revocation_reason}
+                          </div>
+                        )}
+                        {certificate.status === 'revoked' && certificate.revoked_at && (
+                          <div className="text-sm text-destructive ml-6">
+                            Revoked on: {new Date(certificate.revoked_at).toLocaleDateString()}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -373,6 +422,22 @@ const Verify = () => {
                   </p>
                 </div>
               </CardContent>
+              </>
+            ) : (
+              <>
+                {/* Not Found Banner */}
+                <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-destructive/10 to-destructive/5 border-b">
+                  <div className="p-3 rounded-full ring-4 bg-destructive/10 text-destructive ring-destructive/30">
+                    <XCircle className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-heading font-bold leading-tight">Certificate Not Found</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      No matching credential exists in the EduChain Ethiopia database. Double-check the certificate ID.
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
           </Card>
         )}
@@ -418,11 +483,12 @@ const Verify = () => {
             </CardContent>
           </Card>
         )}
+        </PageTransition>
 
         {/* Hidden Certificate Template for PDF Generation */}
         {certificate && (
           <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-            <CertificateTemplate certificate={certificate} />
+            <CertificateTemplate certificate={certificate} settings={certSettings || undefined} />
           </div>
         )}
 
@@ -442,6 +508,7 @@ const Verify = () => {
             studentName={certificate.student_name}
           />
         )}
+        </div>
       </div>
     </div>
   );
