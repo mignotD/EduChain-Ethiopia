@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCertificates } from '@/hooks/useCertificates';
+import { useUniversitySettings } from '@/hooks/useUniversitySettings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CertificateTemplate } from '@/components/CertificateTemplate';
 
 interface CertificateForm {
   studentName: string;
@@ -25,6 +27,7 @@ interface CertificateForm {
   fieldOfStudy: string;
   graduationDate: Date | undefined;
   gpa: string;
+  expiryDate: Date | undefined;
   metadata: {
     honors?: string;
     additionalInfo?: string;
@@ -34,6 +37,7 @@ interface CertificateForm {
 const IssueCertificate = () => {
   const { profile } = useAuth();
   const { issueCertificate, loading } = useCertificates();
+  const { settings } = useUniversitySettings();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -44,6 +48,7 @@ const IssueCertificate = () => {
     fieldOfStudy: '',
     graduationDate: undefined,
     gpa: '',
+    expiryDate: undefined,
     metadata: {}
   });
 
@@ -129,7 +134,8 @@ const IssueCertificate = () => {
         gpa: form.gpa ? parseFloat(form.gpa) : null,
         university_name: profile.university_name,
         university_code: profile.university_code,
-        honors: form.metadata.honors?.trim() || undefined
+        honors: form.metadata.honors?.trim() || undefined,
+        expiry_date: form.expiryDate ? form.expiryDate.toISOString().split('T')[0] : null,
       };
 
       await issueCertificate(certificateData);
@@ -162,44 +168,28 @@ const IssueCertificate = () => {
     'Doctor of Engineering'
   ];
 
-  // Certificate Preview Component
-  const CertificatePreview = () => (
-    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-blue-900">
-          {profile?.university_name}
-        </CardTitle>
-        <CardDescription className="text-lg font-semibold text-blue-700">
-          Certificate of Graduation
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 text-center">
-        <p className="text-lg">This is to certify that</p>
-        <p className="text-2xl font-bold text-blue-900">{form.studentName}</p>
-        <p className="text-lg">
-          has successfully completed the requirements for the degree of
-        </p>
-        <p className="text-xl font-semibold text-blue-800">{form.degree}</p>
-        <p className="text-lg">in {form.fieldOfStudy}</p>
-        <p className="text-md">
-          Graduated on {form.graduationDate ? format(form.graduationDate, "MMMM d, yyyy") : ""}
-        </p>
-        {form.gpa && (
-          <p className="text-md">
-            with a Grade Point Average of {form.gpa}
-          </p>
-        )}
-        {form.metadata.honors && (
-          <p className="text-md font-semibold text-blue-700">
-            {form.metadata.honors}
-          </p>
-        )}
-        <div className="pt-4">
-          <Badge variant="secondary">Student ID: {form.studentId}</Badge>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const mockCertificate = {
+    id: 'preview',
+    certificate_id: 'PREVIEW',
+    student_name: form.studentName,
+    student_id: form.studentId,
+    degree: form.degree,
+    field_of_study: form.fieldOfStudy,
+    graduation_date: form.graduationDate?.toISOString().split('T')[0] || '',
+    gpa: form.gpa ? parseFloat(form.gpa) : null,
+    honors: form.metadata.honors || null,
+    university_name: profile?.university_name || '',
+    university_code: profile?.university_code || '',
+    status: 'active' as const,
+    qr_code: null,
+    issued_by: '',
+    issued_at: new Date().toISOString(),
+    expiry_date: form.expiryDate?.toISOString() || null,
+    revocation_reason: null,
+    revoked_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,7 +225,7 @@ const IssueCertificate = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {showPreview ? (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Certificate Preview</h2>
               <div className="flex gap-2">
@@ -249,7 +239,9 @@ const IssueCertificate = () => {
               </div>
             </div>
             
-            <CertificatePreview />
+            <div className="border rounded-xl overflow-auto bg-white shadow-sm">
+              <CertificateTemplate certificate={mockCertificate as any} settings={settings || undefined} />
+            </div>
             
             <Alert>
               <AlertTriangle className="h-4 w-4" />
@@ -394,6 +386,35 @@ const IssueCertificate = () => {
               {/* Additional Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2">Additional Information</h3>
+
+                <div className="space-y-2">
+                  <Label>Certificate Expiry Date (Optional)</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Set if this certificate has a limited validity period (e.g., professional certifications)
+                  </p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !form.expiryDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {form.expiryDate ? format(form.expiryDate, "PPP") : "No expiry date (lifetime)"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={form.expiryDate}
+                        onSelect={(date) => setForm({ ...form, expiryDate: date })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="honors">Honors/Distinctions (Optional)</Label>
