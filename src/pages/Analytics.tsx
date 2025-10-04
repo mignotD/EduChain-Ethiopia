@@ -321,9 +321,9 @@ const Analytics = () => {
                 <CardContent>
                   <ChartContainer
                     config={{
-                      active: { label: "Active", color: "hsl(var(--primary))" },
-                      revoked: { label: "Revoked", color: "hsl(var(--destructive))" },
-                      pending: { label: "Pending", color: "hsl(var(--muted))" }
+                      active: { label: "Active", color: "hsl(142, 76%, 36%)" },
+                      expired: { label: "Expired", color: "hsl(38, 92%, 50%)" },
+                      revoked: { label: "Revoked", color: "hsl(0, 84%, 60%)" }
                     }}
                     className="h-[300px]"
                   >
@@ -349,11 +349,11 @@ const Analytics = () => {
                 </CardContent>
               </Card>
 
-              {/* Top Degrees */}
+              {/* Field of Study Distribution */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top Degrees</CardTitle>
-                  <CardDescription>Most issued degree types</CardDescription>
+                  <CardTitle>Fields of Study</CardTitle>
+                  <CardDescription>Most common fields of study</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
@@ -363,18 +363,17 @@ const Analytics = () => {
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analytics.degreeChartData}>
+                      <BarChart data={analytics.fieldChartData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="degree" 
-                          tick={{ fontSize: 12 }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
+                        <XAxis type="number" />
+                        <YAxis
+                          type="category"
+                          dataKey="degree"
+                          tick={{ fontSize: 11 }}
+                          width={160}
                         />
-                        <YAxis />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
@@ -382,35 +381,103 @@ const Analytics = () => {
               </Card>
             </div>
 
-            {/* Monthly Trend */}
+            {/* Second Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Monthly Trend */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Issuance Trend</CardTitle>
+                  <CardDescription>Certificates issued over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      count: { label: "Certificates", color: "hsl(var(--primary))" }
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics.monthlyChartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis allowDecimals={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={3}
+                          dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* GPA Distribution */}
+              {analytics.gpaChartData.some(d => d.count > 0) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>GPA Distribution</CardTitle>
+                    <CardDescription>Grade point average ranges</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ChartContainer
+                      config={{}}
+                      className="h-[300px]"
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analytics.gpaChartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="range" tick={{ fontSize: 11 }} />
+                          <YAxis allowDecimals={false} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                            {analytics.gpaChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Recent Certificates */}
             <Card>
-              <CardHeader>
-                <CardTitle>Issuance Trend</CardTitle>
-                <CardDescription>Certificates issued over the last 6 months</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Recent Certificates</CardTitle>
+                  <CardDescription>Latest 5 issued certificates</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/certificates')}>
+                  View all
+                </Button>
               </CardHeader>
               <CardContent>
-                <ChartContainer
-                  config={{
-                    count: { label: "Certificates", color: "hsl(var(--primary))" }
-                  }}
-                  className="h-[400px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={analytics.monthlyChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="count" 
-                        stroke="hsl(var(--primary))" 
-                        strokeWidth={3}
-                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+                <div className="space-y-3">
+                  {analytics.recent.map((cert) => (
+                    <div key={cert.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{cert.student_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {cert.degree} — {cert.field_of_study}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 ml-4">
+                        <Badge variant={cert.status === 'revoked' ? 'destructive' : 'outline'}>
+                          {cert.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(cert.issued_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -428,6 +495,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
         )}
+        </PageTransition>
       </main>
     </div>
   );
